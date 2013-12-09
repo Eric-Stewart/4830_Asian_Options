@@ -7,16 +7,6 @@ library(gridExtra)
 # Define server
 shinyServer(function(input, output) {
   
-  
-  #*****************************************************************
-  # Shared Reactive functions
-  # http://rstudio.github.com/shiny/tutorial/#inputs-and-outputs
-  #******************************************************************      
-  # Get stock data
-
-  #*****************************************************************
-  # Not Reactive helper functions
-  #*****************************************************************
 
 # Make table
 makeStatsTable <- function() {    
@@ -76,20 +66,14 @@ makeStockPlot <- function() {
   A_ss<-rep(NA,simulation_number)
   
   for (j in 1:simulation_number){
-    #  set.seed(j) 
-    #Generate uniform  (use the same for AV, need to modify for SS) 
-    #minus one, start with first stock price
+
     uniform_simulated <- as.vector(runif(number_stock_price-1, 0, 1))
-    u_s_100 <- as.vector(runif(100-1, 0, 1))
-    #uniform_simulated_ss <- as.vector(u_s_100+(0:(100-1)))/(100)
-    uniform_simulated_ss <- replicate((number_stock_price-1), as.vector((runif(ss_steps, 0, 1))+(0:(ss_steps-1)))/ss_steps)
+
+    uniform_simulated_ss <- t(replicate((number_stock_price-1), as.vector((runif(ss_steps, 0, 1))+(0:(ss_steps-1)))/ss_steps))
     
-    #    uniform_simulated_ss <- sample(uniform_simulated_ss, length(uniform_simulated_ss), replace=FALSE)
-    #    uniform_simulated_ss <- sample(uniform_simulated_ss)
     norm_simulated <- qnorm(uniform_simulated)
     norm_simulated_av <- -1*qnorm(uniform_simulated)
     norm_simulated_ss <- qnorm(uniform_simulated_ss)
-    norm_simulated_ss <- cbind(rep(1,ss_steps),norm_simulated_ss)
     
     #Generate Stock Prices
     stock_simulated<-NULL
@@ -99,17 +83,7 @@ makeStockPlot <- function() {
     stock_simulated_av<-c(stock_price, rep(NA, length(norm_simulated)))
     #SS
     stock_simulated_ss<-NULL
-    stock_simulated_ss<-t(replicate((number_stock_price), c(stock_price, rep(NA, length(norm_simulated)))))
-#    stock_simulated_ss<-stock_price*
-#      exp((rate - dividends - .5*sigma^2)*
-#            (time_yr/99)+
-#            sigma*sqrt(time_yr/99)*norm_simulated_ss)
-#    stock_simulated_ss<-rowMeans(stock_simulated_ss)
-#    stock_simulated_ss<-as.vector(c(stock_price, stock_simulated_ss))
-    
-    
-    
-    #stock_simulated_ss<-c(stock_price, rep(NA, length(norm_simulated_ss)))
+    stock_simulated_ss<-replicate((ss_steps), c(stock_price, rep(NA, length(norm_simulated))))
     
     n<-length(stock_simulated) - 1
     for (i in 1:n){
@@ -126,16 +100,16 @@ makeStockPlot <- function() {
               (time_yr/number_stock_price)+
               sigma*sqrt(time_yr/number_stock_price)*norm_simulated_av[i])
       #for SS
-          stock_simulated_ss[,i+1]<-
-            mean(stock_simulated_ss[,i])*
+          stock_simulated_ss[i+1,]<-
+            mean(stock_simulated_ss[i,])*
             exp((rate - dividends - .5*sigma^2)*
                   (1/number_stock_price)+
-                  sigma*sqrt(1/number_stock_price)*norm_simulated_ss[,i+1])
+                  sigma*sqrt(1/number_stock_price)*norm_simulated_ss[i,])
     }
     #Populate stock paths
     stock_matrix[j,]<-stock_simulated
     stock_matrix_av[j,]<-stock_simulated_av
-    stock_matrix_ss[j,]<-colMeans(stock_simulated_ss)
+    stock_matrix_ss[j,]<-rowMeans(stock_simulated_ss)
     
     #Geometric Average Price
     G[j]<-exp(mean(log(stock_simulated)))
@@ -146,7 +120,7 @@ makeStockPlot <- function() {
     A_av[j]<-mean(stock_simulated_av)
     #SS
     G_ss[j]<-exp(mean(log(colMeans(stock_simulated_ss))))
-    A_ss[j]<-mean(colMeans(stock_simulated_ss))
+    A_ss[j]<-mean(rowMeans(stock_simulated_ss))
     uniform_simulated_ss<-NULL
     
     
@@ -306,7 +280,14 @@ makeStockPlot <- function() {
               "Strike Put", round(temp_table$P_aas, 2),  round(temp_table$P_gas, 2),	round(temp_table$P_aas_av, 2),	round(temp_table$P_gas_av, 2),	round(temp_table$P_aas_ss, 2),	round(temp_table$P_gas_ss, 2))
     
     #print(paste(xtable(t(matrix(temp_e, 7)), caption = "Option: Asian")         ))
-    xtable(t(matrix(temp_e, 7)))
+    #xtable(t(matrix(temp_e, 7)))
+    
+    temp_matrix<-(t(matrix(temp_e, 7)))
+    temp_data.frame<-data.frame((t(matrix(temp_e, 7)))[2:6,2:7])
+    colnames(temp_data.frame)<-temp_matrix[1,2:7]
+    rownames(temp_data.frame)<-temp_matrix[2:6,1]
+    
+    xtable(temp_data.frame)
   
     
   })
